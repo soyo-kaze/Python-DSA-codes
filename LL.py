@@ -1,4 +1,4 @@
-from typing import AnyStr
+from typing import AnyStr, Container
 
 
 class Empty(Exception):
@@ -109,7 +109,7 @@ class _DobuleLinkedBase:
         return self._size == 0
 
     def _insert_between(self, e, predecessor, successor):
-        newest = self._Node(e, predecessor, successor)
+        newest = self._Node(e,  successor, predecessor)
         predecessor._next = newest
         successor._prev = newest
         self._size += 1
@@ -124,3 +124,81 @@ class _DobuleLinkedBase:
         e._prev = e._next = e._element = None
         self._size -= 1
         return element
+
+
+class PositionalList(_DobuleLinkedBase):
+    class Postion:
+        def __init__(self, container, node) -> None:
+            self._container = container
+            self._node = node
+
+        def element(self):
+            return self._node._element
+
+        def __eq__(self, __o: object) -> bool:
+            return type(__o) is type(self) and __o._node is self._node
+
+        def __ne__(self, __o: object) -> bool:
+            return not (__o == self)
+
+    def _validate(self, p):
+        if not isinstance(p, self.Postion):
+            raise TypeError("p must be proper Position type")
+        if p._container is not self:
+            raise ValueError("p does not belong to this container")
+        if p._node._next is None:
+            raise ValueError("p is no longer valid")
+        return p._node
+
+    def _make_position(self, node):
+        if node is self._header or node is self._trailer:
+            return None
+        else:
+            return self.Postion(self, node)
+
+    def first(self):
+        return self._make_position(self._header._next)
+
+    def last(self):
+        return self._make_position(self._trailer._prev)
+
+    def before(self, p):
+        node = self._validate(p)
+        return self._make_position(node._prev)
+
+    def after(self, p):
+        node = self._validate(p)
+        return self._make_position(node._next)
+
+    def __iter__(self):
+        cursor = self.first()
+        while cursor is not None:
+            yield cursor.element()
+            cursor = self.after(cursor)
+
+    def delete(self, p):
+        original = self._validate(p)
+        return self._delete_node(original)
+
+    def _insert_between(self, e, predecessor, successor):
+        node = super()._insert_between(e, predecessor, successor)
+        return self._make_position(node)
+
+    def add_last(self, e):
+        return self._insert_between(e, self._trailer._prev, self._trailer)
+
+
+def insertion_sort(L):
+    if len(L) > 1:
+        marker = L.first()
+        while marker != L.last():
+            pivot = L.after(marker)
+            value = pivot.element()
+            if value > marker.element():
+                marker = pivot
+            else:
+                walk = marker
+                while walk != L.first() and L.before(walk).element() > value:
+                    walk = L.before(marker)
+                L.delete(pivot)
+                L.add_before(walk, value)
